@@ -1,0 +1,28 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/ivan/CLionProjects/CuckooHash/hash.h
+
+/home/ivan/CLionProjects/CuckooHash/main.cpp
+iostream
+-
+mutex
+-
+cassert
+-
+atomic
+-
+cstdio
+-
+hash.h
+/home/ivan/CLionProjects/CuckooHash/hash.h
+thread
+-
+vector
+-
+
