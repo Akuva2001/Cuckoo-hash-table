@@ -6,9 +6,10 @@
 #include "hash.h"
 #include <thread>
 #include <vector>
+#include <chrono>
 
-#define ONE_THREAD_DEBUG
-#define WTF_happens
+//#define ONE_THREAD_DEBUG
+//#define WTF_happens
 
 typedef unsigned int Table_el_type;
 
@@ -137,8 +138,10 @@ public:
     int size, lock_size;
     std::atomic<int> version {0};
     std::mutex resize_lock;
-    CuckooHash(int size, int lock_size) :
+    bool print_resize = true;
+    CuckooHash(int size, int lock_size, bool print_resize = true) :
         size(size), lock_size(lock_size),
+        print_resize(print_resize),
         t0(size, lock_size, 0),
         t1(size, lock_size, 1) {}
     PositionPack pospack(Table_el_type x) const {
@@ -244,7 +247,10 @@ public:
         for (int i=0; i<t0.lock_size; ++i){
             t1.lock_arr[i].lock();
         }//locked all
-        print();
+        if (print_resize){
+            printf("\n");
+            print();
+        }
         ++version;
         Probe *old_Tables[2] = {t0.arr, t1.arr};
         int old_size = size;
@@ -350,24 +356,45 @@ public:
 
 CuckooHash Cuc{8, 8};
 
-void foo(int i){
+void foo(int i, CuckooHash * Cuc){
     int k = i;
     //i = 0;
     bool r = true;
     for(int j = 1000*i + 1; j<1000*i + 100; ++j){
         //printf("I'm %2d add   %3d\n", k, j);
-        r = r && Cuc.add(j);
+        r = r && Cuc->add(j);
         //printf("I'm %2d added %3d res %d\n", k, j, r);
         //Cuc.print();
     }
-    for(int j = 1000*i + 1; j<1000*i + 100; ++j){
-        //printf("I'm %2d add   %3d\n", k, j);
-        r = r && Cuc.erase(j);
-        //printf("I'm %2d added %3d res %d\n", k, j, r);
+    /*for(int j = 1000*i + 1; j<1000*i + 100; ++j){
+        //printf("I'm %2d erase   %3d\n", k, j);
+        r = r && Cuc->erase(j);
+        //printf("I'm %2d erase %3d res %d\n", k, j, r);
         //Cuc.print();
-    }
+    }*/
     return;
 }
+
+class Timer {
+public:
+    Timer() {
+        begin = std::chrono::steady_clock::now();
+    }
+
+    ~Timer() {
+        auto end = std::chrono::steady_clock::now();
+        auto elapsed_ms = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin);
+        //std::cout << "Time is " << elapsed_ms.count()*0.1e-8 << " s\n";
+        printf("%9d\n", elapsed_ms.count());
+        //std::cout << elapsed_ms.count()<<"\n";
+    }
+
+private:
+    std::chrono::time_point<std::chrono::_V2::steady_clock, std::chrono::duration<long int, std::ratio<1, 1000000000>>>
+            begin;
+
+};
+
 
 int main() {
     std::cout << "Hello, World!" << std::endl;
@@ -407,7 +434,7 @@ int main() {
     std::cout<<Cuc.contains(7)<<'\n';
     std::cout<<Cuc.contains(1)<<'\n';
 
-/*    for (Table_el_type i = 1; i<50; ++i){
+    for (Table_el_type i = 1; i<50; ++i){
         std::cout<<"add "<<i<<" "<<Cuc.add(i)<<'\n';
         Cuc.print();
     }
@@ -415,15 +442,19 @@ int main() {
         std::cout<<"erase "<<i<<" "<<Cuc.erase(i)<<'\n';
         Cuc.print();
     }
-    return 0;*/
-    const int num_threads = 100;
-    bool res[num_threads] {};
-    std::vector<std::thread> th(num_threads);
-    for (int i=0; i<num_threads; ++i){
-        th[i] = std::thread(foo, i);
-    }
-    for (int i=0; i<num_threads; ++i){
-        th[i].join();
+
+    for (int j = 1; j<=64; j*=2) {
+        int num_threads = j;
+        CuckooHash Cuc(512, 128, false);
+        std::vector<std::thread> th(num_threads);
+        Timer t;
+        for (int i = 0; i < num_threads; ++i) {
+            th[i] = std::thread(foo, i, &Cuc);
+        }
+        for (int i = 0; i < num_threads; ++i) {
+            th[i].join();
+        }
+        printf("%3d ", num_threads);
     }
 
 
